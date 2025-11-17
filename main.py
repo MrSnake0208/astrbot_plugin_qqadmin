@@ -339,7 +339,7 @@ class QQAdminPlugin(Star):
         Args:
             user_id(string): 要禁言的用户的QQ账号，必定为一串数字，如(12345678)
             user_name(string): 要禁言的用户的QQ昵称，如(小明)
-            duration(number): 禁言持续时间（以秒为单位），范围为0~86400。设置为 0 即解除禁言
+            duration(number): 禁言持续时间（以秒为单位），范围为30~86400。
         """
         try:
             await event.bot.set_group_ban(
@@ -351,8 +351,10 @@ class QQAdminPlugin(Star):
                 f"用户：{user_id}在群聊中被：{event.get_sender_name()}执行禁言{duration}秒"
             )
             event.stop_event()
+            yield
         except Exception as e:
             logger.error(f"禁言用户 {user_id} 失败: {e}")
+            yield
 
 
     @filter.command("群管帮助")
