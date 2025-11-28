@@ -291,6 +291,16 @@ class QQAdminPlugin(Star):
     async def view_level_threshold(self, event: AiocqhttpMessageEvent):
         await self.join.view_level_threshold(event)
 
+    @filter.command("设置无词拒绝", desc="设置本群未命中关键词自动拒绝开关")
+    @perm_required(PermLevel.ADMIN)
+    async def set_auto_reject_without_keyword(self, event: AiocqhttpMessageEvent):
+        await self.join.set_auto_reject_without_keyword(event)
+
+    @filter.command("查看无词拒绝", desc="查看本群未命中关键词自动拒绝状态", alias={"无词拒绝"})
+    @perm_required(PermLevel.ADMIN)
+    async def view_auto_reject_without_keyword(self, event: AiocqhttpMessageEvent):
+        await self.join.view_auto_reject_without_keyword(event)
+
     @filter.command("设置黑词拉黑", desc="设置本群命中黑词自动拉黑开关")
     @perm_required(PermLevel.ADMIN)
     async def set_auto_blacklist_on_reject_keyword(self, event: AiocqhttpMessageEvent):

@@ -21,6 +21,7 @@ class GroupJoinData:
         self.reject_keywords: dict[str, list[str]] = {}
         self.reject_ids: dict[str, list[str]] = {}
         self.reject_below_level: dict[str, int] = {}
+        self.auto_reject_without_keyword: dict[str, bool] = {}
         self.auto_blacklist_on_reject_keyword: dict[str, bool] = {}
         self._load()
 
@@ -35,6 +36,7 @@ class GroupJoinData:
             self.reject_keywords = data.get("reject_keywords", {})
             self.reject_ids = data.get("reject_ids", {})
             self.reject_below_level = data.get("reject_below_level", {})
+            self.auto_reject_without_keyword = data.get("auto_reject_without_keyword", {})
             self.auto_blacklist_on_reject_keyword = data.get("auto_blacklist_on_reject_keyword", {})
         except Exception as e:
             print(f"加载 group_join_data 失败: {e}")
@@ -46,6 +48,7 @@ class GroupJoinData:
             "reject_keywords": self.reject_keywords,
             "reject_ids": self.reject_ids,
             "reject_below_level": self.reject_below_level,
+            "auto_reject_without_keyword": self.auto_reject_without_keyword,
             "auto_blacklist_on_reject_keyword": self.auto_blacklist_on_reject_keyword,
         }
         with open(self.path, "w", encoding="utf-8") as f:
@@ -59,8 +62,8 @@ class GroupJoinData:
 class GroupJoinManager:
     def __init__(self, json_path: str):
         self.data = GroupJoinData(json_path)
-        self.auto_reject_without_keyword: bool = False
         self.reject_below_level: int = 0
+        self.auto_reject_without_keyword: bool = False
         self.auto_blacklist_on_reject_keyword: bool = False
 
     def reject_reason(
@@ -97,8 +100,9 @@ class GroupJoinManager:
             ):
                 return "命中黑名单关键词"
             # 未包含任何自动同意关键词（需开启开关 & 已设置白名单关键词）
+            # 优先使用群独立配置，否则使用全局配置
             if (
-                self.auto_reject_without_keyword
+                self.should_auto_reject_without_keyword(group_id)
                 and group_id in self.data.accept_keywords
                 and self.data.accept_keywords[group_id]
                 and not any(
@@ -187,6 +191,25 @@ class GroupJoinManager:
         """获取群的进群等级门槛，返回 None 表示未设置（使用全局配置）"""
         return self.data.reject_below_level.get(group_id)
 
+    def set_auto_reject_without_keyword(self, group_id: str, enabled: bool | None) -> None:
+        """设置群的未命中关键词自动拒绝开关，None 表示删除群配置（使用全局配置）"""
+        if enabled is None:
+            self.data.auto_reject_without_keyword.pop(group_id, None)
+        else:
+            self.data.auto_reject_without_keyword[group_id] = enabled
+        self.data.save()
+
+    def get_auto_reject_without_keyword(self, group_id: str) -> bool | None:
+        """获取群的未命中关键词自动拒绝开关，返回 None 表示未设置（使用全局配置）"""
+        return self.data.auto_reject_without_keyword.get(group_id)
+
+    def should_auto_reject_without_keyword(self, group_id: str) -> bool:
+        """判断是否应该在未命中关键词时自动拒绝（优先使用群配置，否则使用全局配置）"""
+        group_setting = self.data.auto_reject_without_keyword.get(group_id)
+        if group_setting is not None:
+            return group_setting
+        return self.auto_reject_without_keyword
+
     def set_auto_blacklist_on_reject_keyword(self, group_id: str, enabled: bool | None) -> None:
         """设置群的命中黑词自动拉黑开关，None 表示删除群配置（使用全局配置）"""
         if enabled is None:
@@ -214,11 +237,11 @@ class JoinHandle:
         self.group_join_manager = GroupJoinManager(
             str(data_dir / "group_join_data.json")
         )
-        self.group_join_manager.auto_reject_without_keyword = bool(
-            config.get("reject_without_keyword", False)
-        )
         self.group_join_manager.reject_below_level = int(
             config.get("reject_below_level", 0)
+        )
+        self.group_join_manager.auto_reject_without_keyword = bool(
+            config.get("auto_reject_without_keyword", False)
         )
         self.group_join_manager.auto_blacklist_on_reject_keyword = bool(
             config.get("auto_blacklist_on_reject_keyword", False)
@@ -348,6 +371,38 @@ class JoinHandle:
             await event.send(event.plain_result(f"本群进群等级门槛：{global_level} 级（全局配置）"))
         else:
             await event.send(event.plain_result("本群未设置进群等级门槛"))
+
+    async def set_auto_reject_without_keyword(self, event: AiocqhttpMessageEvent):
+        """设置本群未命中关键词自动拒绝开关"""
+        arg = event.message_str.strip().split(" ")[1]
+        group_id = event.get_group_id()
+
+        if arg in ("开", "开启", "on", "true", "1"):
+            self.group_join_manager.set_auto_reject_without_keyword(group_id, True)
+            await event.send(event.plain_result("已开启本群未命中关键词自动拒绝"))
+        elif arg in ("关", "关闭", "off", "false", "0"):
+            self.group_join_manager.set_auto_reject_without_keyword(group_id, False)
+            await event.send(event.plain_result("已关闭本群未命中关键词自动拒绝"))
+        elif arg in ("清除", "删除", "默认", "default", "clear"):
+            self.group_join_manager.set_auto_reject_without_keyword(group_id, None)
+            global_setting = self.group_join_manager.auto_reject_without_keyword
+            status = "开启" if global_setting else "关闭"
+            await event.send(event.plain_result(f"已清除本群配置，将使用全局配置（{status}）"))
+        else:
+            await event.send(event.plain_result("请提供参数：开/关/清除"))
+
+    async def view_auto_reject_without_keyword(self, event: AiocqhttpMessageEvent):
+        """查看本群未命中关键词自动拒绝开关状态"""
+        group_id = event.get_group_id()
+        group_setting = self.group_join_manager.get_auto_reject_without_keyword(group_id)
+        global_setting = self.group_join_manager.auto_reject_without_keyword
+
+        if group_setting is not None:
+            status = "开启" if group_setting else "关闭"
+            await event.send(event.plain_result(f"本群未命中关键词自动拒绝：{status}（群独立配置）"))
+        else:
+            status = "开启" if global_setting else "关闭"
+            await event.send(event.plain_result(f"本群未命中关键词自动拒绝：{status}（全局配置）"))
 
     async def set_auto_blacklist_on_reject_keyword(self, event: AiocqhttpMessageEvent):
         """设置本群命中黑词自动拉黑开关"""

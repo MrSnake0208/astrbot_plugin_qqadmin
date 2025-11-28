@@ -25,17 +25,17 @@
     "type": "list",
     "default": []
   },
-  "reject_without_keyword": {
-    "description": "未命中自动同意关键词自动拒绝",
-    "hint": "当已配置进群关键词且申请备注不包含任何一个关键词时，自动拒绝进群申请",
-    "type": "bool",
-    "default": false
-  },
   "reject_below_level": {
     "description": "进群等级门槛",
     "hint": "当申请人的QQ等级低于此值时，自动拒绝进群申请。设为0表示不启用此功能。可通过群内命令为单个群设置独立配置",
     "type": "int",
     "default": 0
+  },
+  "auto_reject_without_keyword": {
+    "description": "未命中关键词自动拒绝",
+    "hint": "当已配置进群关键词且申请备注不包含任何一个关键词时，自动拒绝进群申请。可通过群内命令为单个群设置独立配置",
+    "type": "bool",
+    "default": false
   },
   "auto_blacklist_on_reject_keyword": {
     "description": "命中黑词自动拉黑",
