@@ -37,6 +37,12 @@
     "type": "int",
     "default": 0
   },
+  "auto_blacklist_on_reject_keyword": {
+    "description": "命中黑词自动拉黑",
+    "hint": "当进群申请因命中黑名单关键词被拒绝时，自动将该用户加入进群黑名单。可通过群内命令为单个群设置独立配置",
+    "type": "bool",
+    "default": false
+  },
   "enable_black": {
     "description": "启用主动退群通知",
     "hint": "当用户主动退群时，向群内通报",
@@ -44,7 +50,7 @@
     "default": true
   },
   "auto_black": {
-    "description": "自动拉黑",
+    "description": "主动退群自动拉黑",
     "hint": "当用户主动退群时，是否自动拉黑（即添加到拒绝列表）",
     "type": "bool",
     "default": false

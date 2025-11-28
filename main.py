@@ -291,6 +291,16 @@ class QQAdminPlugin(Star):
     async def view_level_threshold(self, event: AiocqhttpMessageEvent):
         await self.join.view_level_threshold(event)
 
+    @filter.command("设置黑词拉黑", desc="设置本群命中黑词自动拉黑开关")
+    @perm_required(PermLevel.ADMIN)
+    async def set_auto_blacklist_on_reject_keyword(self, event: AiocqhttpMessageEvent):
+        await self.join.set_auto_blacklist_on_reject_keyword(event)
+
+    @filter.command("查看黑词拉黑", desc="查看本群命中黑词自动拉黑状态", alias={"黑词拉黑"})
+    @perm_required(PermLevel.ADMIN)
+    async def view_auto_blacklist_on_reject_keyword(self, event: AiocqhttpMessageEvent):
+        await self.join.view_auto_blacklist_on_reject_keyword(event)
+
     @filter.command("批准", desc="批准进群申请", alias={"同意进群"})
     @perm_required(PermLevel.ADMIN)
     async def agree_add_group(self, event: AiocqhttpMessageEvent, extra: str = ""):
