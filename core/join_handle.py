@@ -108,6 +108,13 @@ class GroupJoinData:
     def set_block_ids(self, group_id: str, uids: list[str]) -> None:
         self.set(group_id, block_ids=uids)
 
+    # ---------- 快捷增删 ----------
+    def add_block_id(self, group_id: str, uid: str) -> None:
+        self.set_block_ids(group_id, [*self.get_block_ids(group_id), uid])
+
+    def remove_block_id(self, group_id: str, uid: str) -> None:
+        self.set_block_ids(group_id, [i for i in self.get_block_ids(group_id) if i != uid])
+
 
 class JoinHandle:
     DB_VERSION = 2
@@ -207,7 +214,7 @@ class JoinHandle:
             msg = (
                 f"已限制本群进群次数：{time}次"
                 if time > 0
-                else "已解除本群的进群等级限制"
+                else "已解除本群的进群次数限制"
             )
             await event.send(event.plain_result(msg))
         else:
@@ -231,12 +238,10 @@ class JoinHandle:
         user_id: str,
         comment: str | None = None,
         user_level: int | None = None,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool | None, str]:
         """判断是否让该用户入群，返回原因"""
         # 黑名单用户
-        if group_id in self.db.get(group_id) and user_id in self.db.get_block_ids(
-            group_id
-        ):
+        if user_id in self.db.get_block_ids(group_id):
             return False, "黑名单用户"
 
         # QQ等级过低
@@ -247,13 +252,16 @@ class JoinHandle:
         # 命中进群黑词
         if comment:
             lower_comment = comment.lower()
-            if any(
-                rk.lower() in lower_comment
-                for rk in self.db.get_reject_keywords(group_id)
-            ):
-                block_ids = list(set(self.db.get_block_ids(group_id)) | {user_id})
-                self.db.set_block_ids(group_id, block_ids)
-                return False, "命中进群黑词"
+            rkws = self.db.get_reject_keywords(group_id)
+            if any(rk.lower() in lower_comment for rk in rkws):
+                self.db.add_block_id(group_id, user_id)
+                return False, "命中进群黑词，已拉黑"
+
+        # 命中进群白词
+        if comment:
+            akws = self.db.get_accept_keywords(group_id)
+            if akws and any(ak.lower() in comment.lower() for ak in akws):
+                return True, "验证通过"
 
         # 最大失败次数（考虑到只是防爆破，存内存里足矣，重启清零）
         max_fail = self.db.get_max_time(group_id)
@@ -261,21 +269,11 @@ class JoinHandle:
             key = f"{group_id}_{user_id}"
             self._fail[key] = self._fail.get(key, 0) + 1
             if self._fail[key] > max_fail:
-                return False, f"进群尝试次数已达上限({max_fail}次)"
+                self.db.add_block_id(group_id, user_id)
+                return False, f"进群尝试次数已达上限({max_fail}次)，已拉黑"
 
-        # 命中进群白词
-        if (
-            comment
-            and group_id in self.db.get_accept_keywords(group_id)
-            and any(
-                ak.lower() in comment.lower()
-                for ak in self.db.get_accept_keywords(group_id)
-            )
-        ):
-            return True, "验证通过"
-
-        # 未包含进群关键词
-        return True, ""
+        # 未命中进群关键词
+        return None, "未包命中进群关键词"
 
     # ---------处理事件-----------------
 
@@ -288,9 +286,9 @@ class JoinHandle:
         group_id: str = str(raw.get("group_id", ""))
 
         # 进群审核总开关
+        self.db.ensure_group(group_id)
         if not self.db.get_switch(group_id):
             return
-        self.db.ensure_group(group_id)
 
         client = event.bot
         user_id: str = raw.get("user_id", "")
@@ -322,11 +320,15 @@ class JoinHandle:
             approve, reason = self.should_approve(
                 group_id, user_id, comment, user_level
             )
+            # 人工审核
+            if self.jconf["no_match_reject"] and approve is None:
+                return
+            # 自动审核
             await client.set_group_add_request(
                 flag=flag,
                 sub_type="add",
-                approve=approve,
-                reason=reason if not approve else "",
+                approve=bool(approve),
+                reason="" if approve else reason,
             )
             msg = f"已自动{'批准' if approve else '驳回'}: {reason}"
             await event.send(event.plain_result(msg))
@@ -341,9 +343,8 @@ class JoinHandle:
             nickname = await get_nickname(event, user_id)
             msg = f"{nickname}({user_id}) 主动退群了"
             if self.jconf["leave_block"]:
-                block_ids = self.db.get_block_ids(group_id) + [user_id]
-                self.db.set_block_ids(group_id, block_ids)
-                msg += "，已拉进黑名单"
+                self.db.add_block_id(group_id, user_id)
+                msg += "，已拉黑"
             await event.send(event.plain_result(msg))
 
         # 进群欢迎、禁言
@@ -367,18 +368,6 @@ class JoinHandle:
                     )
                 except Exception:
                     pass
-
-    async def agree_add_group(self, event: AiocqhttpMessageEvent, extra: str = ""):
-        """批准进群申请"""
-        reply = await self.set_approve(event=event, extra=extra, approve=True)
-        if reply:
-            await event.send(event.plain_result(reply))
-
-    async def refuse_add_group(self, event: AiocqhttpMessageEvent, extra: str = ""):
-        """驳回进群申请"""
-        reply = await self.set_approve(event=event, extra=extra, approve=False)
-        if reply:
-            await event.send(event.plain_result(reply))
 
     @staticmethod
     async def set_approve(
@@ -405,3 +394,15 @@ class JoinHandle:
                 return reply
             except Exception:
                 return "这条申请处理过了或者格式不对"
+
+    async def agree_add_group(self, event: AiocqhttpMessageEvent, extra: str = ""):
+        """批准进群申请"""
+        reply = await self.set_approve(event=event, extra=extra, approve=True)
+        if reply:
+            await event.send(event.plain_result(reply))
+
+    async def refuse_add_group(self, event: AiocqhttpMessageEvent, extra: str = ""):
+        """驳回进群申请"""
+        reply = await self.set_approve(event=event, extra=extra, approve=False)
+        if reply:
+            await event.send(event.plain_result(reply))
