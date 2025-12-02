@@ -63,7 +63,7 @@ class BanproHandle:
                     except Exception:
                         logger.error(f"bot在群{event.get_group_id()}权限不足，禁言失败")
                         pass
-                    break
+                break
 
     async def spamming_ban(self, event: AiocqhttpMessageEvent):
         """刷屏禁言"""

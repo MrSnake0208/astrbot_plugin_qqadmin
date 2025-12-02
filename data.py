@@ -140,22 +140,22 @@ class QQAdminDB:
         await self.set(group_id, switch=bool(on))
 
     async def set_accept_words(self, group_id: str, kws: list[str]):
-        await self.set(group_id, accept_words=list(kws))
+        await self.set(group_id, accept_words=kws)
 
     async def set_reject_words(self, group_id: str, kws: list[str]):
-        await self.set(group_id, reject_words=list(kws))
+        await self.set(group_id, reject_words=kws)
 
     async def set_min_level(self, group_id: str, level: int):
-        await self.set(group_id, min_level=int(level))
+        await self.set(group_id, min_level=level)
 
     async def set_max_time(self, group_id: str, times: int):
-        await self.set(group_id, max_time=int(times))
+        await self.set(group_id, max_time=times)
 
     async def set_block_ids(self, group_id: str, uids: list[str]):
-        await self.set(group_id, block_ids=list(uids))
+        await self.set(group_id, block_ids=uids)
 
     async def set_ban_words(self, group_id: str, words: list[str]):
-        await self.set(group_id, ban_words=list(words))
+        await self.set(group_id, ban_words=words)
 
     # -------- 增删 --------
     async def add_block_id(self, group_id: str, uid: str):
