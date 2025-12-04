@@ -78,6 +78,19 @@ class JoinHandle:
             words = await self.db.get_reject_words(gid)
             await event.send(event.plain_result(f"本群进群黑词：{words}"))
 
+    async def handle_no_match_reject(
+        self, event: AiocqhttpMessageEvent, mode_str: str | bool | None
+    ):
+        """设置/查看是否拒绝无关键词的进群申请"""
+        gid = event.get_group_id()
+        mode = self._parse_mode(mode_str)
+        if isinstance(mode, bool):
+            await self.db.set_no_match_reject(gid, mode)
+            await event.send(event.plain_result(f"本群未命中白词驳回已设为：{mode}"))
+        else:
+            status = await self.db.get_no_match_reject(gid)
+            await event.send(event.plain_result(f"本群未命中白词驳回：{status}"))
+
     async def handle_level_threshold(
         self, event: AiocqhttpMessageEvent, level: int | None
     ):
@@ -183,8 +196,10 @@ class JoinHandle:
             # 3.命中进群黑词
             rkws = await self.db.get_reject_words(group_id)
             if any(rk.lower() in lower_comment for rk in rkws):
-                await self.db.add_block_id(group_id, user_id)
-                return False, "命中进群黑词，已拉黑"
+                if self.jconf["reject_word_block"]:
+                    await self.db.add_block_id(group_id, user_id)
+                    return False, "命中进群黑词，已拉黑"
+                return False, "命中进群黑词"
 
             # 4.命中进群白词
             akws = await self.db.get_accept_words(group_id)
@@ -200,8 +215,8 @@ class JoinHandle:
                 await self.db.add_block_id(group_id, user_id)
                 return False, f"进群尝试次数已达上限({max_fail}次)，已拉黑"
 
-        # 6.未命中白词时,自动驳回
-        if self.jconf["no_match_reject"]:
+        # 6.未命中白词时, 自动驳回
+        if await self.db.get_no_match_reject(group_id):
             return False, "未命中进群关键词"
 
         # 7.未命中进群关键词, 人工审核
