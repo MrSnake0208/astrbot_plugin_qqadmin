@@ -263,11 +263,7 @@ class QQAdminDB:
 
     async def reset_to_default(self, gid: str | None = None):
         """把指定群（或全部群）配置恢复成 default_cfg"""
-        if gid:  # 单个群
-            targets = [gid]
-        else:  # 全部群
-            targets = list(self._cache.keys())
-
+        targets = [gid] if gid else list(self._cache.keys())
         for g in targets:
             self._cache[g] = json.loads(json.dumps(self.default_cfg))
             await self._save_to_db(g, self._cache[g])

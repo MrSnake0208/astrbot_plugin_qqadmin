@@ -228,7 +228,7 @@ class QQAdminPlugin(Star):
     async def handle_spamming_ban_time(
         self, event: AiocqhttpMessageEvent, time: int | None = None
     ):
-        """刷屏禁言 开/关"""
+        """刷屏禁言 <秒数>, 设为 0 表示关闭禁词检测"""
         await self.banpro.handle_spamming_ban_time(event, time)
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
@@ -464,7 +464,7 @@ class QQAdminPlugin(Star):
             await self.db.reset_to_default()
             yield event.plain_result("已重置所有群的群管配置")
         else:
-            await self.db.reset_to_default()
+            await self.db.reset_to_default(str(gid))
             yield event.plain_result("已重置本群的群管配置")
 
     @filter.command("群管帮助")

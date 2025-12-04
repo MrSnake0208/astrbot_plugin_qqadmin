@@ -198,36 +198,51 @@ class JoinHandle:
         comment: str | None = None,
         user_level: int | None = None,
     ) -> tuple[bool | None, str]:
+        """判断是否让该用户入群，返回原因"""
+        # 1.黑名单用户
         block_ids = await self.db.get(gid, "block_ids", [])
         if uid in block_ids:
             return False, "黑名单用户"
 
+        # 2.QQ等级过低
         min_level = await self.db.get(gid, "join_min_level")
         if min_level > 0 and user_level is not None and user_level < min_level:
             return False, f"QQ等级过低({user_level}<{min_level})"
 
         if comment:
+            # 提取答案部分
             keyword = "\n答案："
             if keyword in comment:
                 comment = comment.split(keyword, 1)[1]
 
             lower_comment = comment.lower()
-
+            # 3.命中进群黑词
             rkws = await self.db.get(gid, "join_reject_words", [])
             if any(rk.lower() in lower_comment for rk in rkws):
-                if self.db.get(gid, "reject_word_block", False):
+                if await self.db.get(gid, "reject_word_block", False):
                     await self.db.add(gid, "block_ids", uid)
                     return False, "命中进群黑词，已拉黑"
                 return False, "命中进群黑词"
 
+            # 4.命中进群白词
             akws = await self.db.get(gid, "join_accept_words", [])
             if akws and any(ak.lower() in lower_comment for ak in akws):
                 return True, "命中进群白词"
 
-            no_match = await self.db.get(gid, "join_no_match_reject")
-            if no_match:
-                return False, "未命中白词"
+        # 5.最大失败次数（考虑到只是防爆破，存内存里足矣，重启清零）
+        max_fail = await self.db.get(gid, "get_max_time", 3)
+        if max_fail > 0:
+            key = f"{gid}_{uid}"
+            self._fail[key] = self._fail.get(key, 0) + 1
+            if self._fail[key] >= max_fail:
+                await self.db.add(gid, "block_ids", uid)
+                return False, f"进群尝试次数已达上限({max_fail}次)，已拉黑"
 
+        # 6.未命中白词时, 自动驳回
+        if await self.db.get(gid, "join_no_match_reject"):
+            return False, "未命中进群关键词"
+
+        # 7.未命中进群关键词, 人工审核
         return None, "人工审核"
 
     # ---------处理事件-----------------
