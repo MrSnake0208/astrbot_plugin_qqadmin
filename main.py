@@ -5,7 +5,7 @@ from pathlib import Path
 
 from astrbot import logger
 from astrbot.api.event import filter
-from astrbot.api.star import Context, Star, StarTools, register
+from astrbot.api.star import Context, Star, StarTools
 from astrbot.core import AstrBotConfig
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
@@ -31,7 +31,6 @@ from .permission import (
 from .utils import ADMIN_HELP, print_logo
 
 
-@register("astrbot_plugin_qqadmin", "Zhalslar", "...", "...")
 class QQAdminPlugin(Star):
     DB_VERSION = 3
 
