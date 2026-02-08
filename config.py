@@ -109,7 +109,7 @@ class ConfigNode:
 
 
 class VoteBanConfig(ConfigNode):
-    ttl: bool
+    ttl: int
     threshold: int
 
 
