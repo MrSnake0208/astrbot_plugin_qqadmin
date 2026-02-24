@@ -209,7 +209,7 @@ class QQAdminPlugin(Star):
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
-    async def on_ban_words(self, event: AiocqhttpMessageEvent):
+    async def on_ban_words(self, event: AiocqhttpMessageEvent, *args, **kwargs):
         """自动检测违禁词，撤回并禁言"""
         if not event.is_admin():
             await self.banpro.on_ban_words(event)
@@ -224,7 +224,7 @@ class QQAdminPlugin(Star):
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
-    async def spamming_ban(self, event: AiocqhttpMessageEvent):
+    async def spamming_ban(self, event: AiocqhttpMessageEvent, *args, **kwargs):
         """刷屏检测与禁言"""
         await self.banpro.spamming_ban(event)
 
@@ -353,7 +353,7 @@ class QQAdminPlugin(Star):
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
-    async def event_monitoring(self, event: AiocqhttpMessageEvent):
+    async def event_monitoring(self, event: AiocqhttpMessageEvent, *args, **kwargs):
         """监听进群/退群事件"""
         await self.join.event_monitoring(event)
 
