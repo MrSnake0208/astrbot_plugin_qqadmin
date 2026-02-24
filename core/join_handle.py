@@ -339,12 +339,13 @@ class JoinHandle:
 
                 if "{at}" in join_welcome:
                     # 使用 {at} 占位符：构建消息链
-                    welcome = join_welcome.format(nickname=nickname, at="")
-                    parts = welcome.split("{at}")
+                    parts = join_welcome.split("{at}")
                     chain = []
                     for i, part in enumerate(parts):
-                        if part:
-                            chain.append(Plain(text=part))
+                        # 先 format {nickname}，再添加到消息链
+                        formatted_part = part.format(nickname=nickname)
+                        if formatted_part:
+                            chain.append(Plain(text=formatted_part))
                         if i < len(parts) - 1:
                             chain.append(At(qq=int(uid)))
                     await event.send(event.chain_result(chain))
